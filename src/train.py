@@ -18,10 +18,10 @@ tf.app.flags.DEFINE_float('num_epochs_per_decay', 5.0,
                           """Epochs after which learning rate decays.""")
 tf.app.flags.DEFINE_float('learning_rate_decay_factor', 0.97,
                           """Learning rate decay factor.""")
-tf.app.flags.DEFINE_integer('batch_size', 40, """The batch size to use.""")
+tf.app.flags.DEFINE_integer('batch_size', 64, """The batch size to use.""")
 tf.app.flags.DEFINE_integer('num_preprocess_threads', 4,
                             """How many preprocess threads to use.""")
-tf.app.flags.DEFINE_string('train_dir', '../../models/train/',
+tf.app.flags.DEFINE_string('train_dir', '../models/train/',
                            """Directory where to write event logs """
                            """and checkpoint.""")
 tf.app.flags.DEFINE_string('pretrained_model_checkpoint_path', '',
@@ -142,12 +142,12 @@ def train(scope=''):
 
         with h5py.File("../data/training_celeba_FaceTracker.h5") as hf:
             _images_train = hf["training_data"][:]
-            _shapes_train = hf["training_landmarks"][:]
+            _landmarks_train = hf["training_landmarks"][:]
             mean_landmarks = hf["mean_landmarks"][:]
 
         with h5py.File("../data/validation_celeba_FaceTracker.h5") as hf:
             _images_val = hf["validation_data"][:]
-            _shapes_val = hf["validation_landmarks"][:]
+            _landmarks_val = hf["validation_landmarks"][:]
 
         # Load the mean of pertu etc
         try:
@@ -157,11 +157,11 @@ def train(scope=''):
             delta_mean, delta_std = get_perturbation_statistics()
 
         image_shape = _images_train[0].shape
-        lms_shape = _shapes_train[0].shape
+        lms_shape = _landmarks_train[0].shape
 
         def get_random_sample():
             idx = np.random.randint(0, len(_images_train))
-            shape = _shapes_train[idx].astype("float32")
+            shape = _landmarks_train[idx].astype("float32")
             initial_shape = sample_perturbation(shape, mean_landmarks).astype("float32")
             # plt.imshow(_images_train[idx][:, :, 0], cmap="gray")
             # plt.scatter(shape[:, 0], shape[:, 1], c="g")
@@ -187,8 +187,8 @@ def train(scope=''):
 
         def get_random_sample_val():
             idx = np.random.randint(0, len(_images_val))
-            shape = _shapes_val[idx].astype("float32")
-            initial_shape = sample_perturbation(shape).astype("float32")
+            shape = _landmarks_val[idx].astype("float32")
+            initial_shape = sample_perturbation(shape, mean_landmarks).astype("float32")
             return _images_val[idx].astype("float32"), shape, initial_shape
 
         image_val, shape_val, initial_shape_val = tf.py_func(get_random_sample_val, [],

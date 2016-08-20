@@ -6,6 +6,8 @@ from slim import scopes
 
 import numpy as np
 import matplotlib.pylab as plt
+import matplotlib.gridspec as gridspec
+import h5py
 
 
 def normalized_rmse(inits, dx_pred, gt_truth, dx_mean, dx_std):
@@ -50,41 +52,58 @@ def get_central_crop(images, box=(6, 6)):
     return images[:, a, b, :]
 
 
-def build_sampling_grid(patch_shape):
-    patch_shape = np.array(patch_shape)
-    patch_half_shape = np.require(np.round(patch_shape / 2), dtype=int)
-    start = -patch_half_shape
-    end = patch_half_shape
-    sampling_grid = np.mgrid[start[0]:end[0], start[1]:end[1]]
-    return sampling_grid.swapaxes(0, 2).swapaxes(0, 1)
-
-
-default_sampling_grid = build_sampling_grid((30, 30))
-
-
-def extract_patches(pixels, centres, sampling_grid=default_sampling_grid):
+def extract_patches(imgs, landmarks, patch_shape):
     """ Extracts patches from an image.
 
     Args:
-        pixels: a numpy array of dimensions [width, height, channels]
-        centres: a numpy array of dimensions [num_patches, 2]
+        imgs: a numpy array of dimensions [width, height, channels]
+        landmarks: a numpy array of dimensions [num_patches, 2]
         sampling_grid: (patch_width, patch_height, 2)
 
     Returns:
         a numpy array [num_patches, width, height, channels]
     """
-    pixels = pixels.transpose(2, 0, 1)
 
-    max_x = pixels.shape[-2] - 1
-    max_y = pixels.shape[-1] - 1
+    patch_shape = np.array(patch_shape)
+    patch_half_shape = np.require(np.round(patch_shape / 2), dtype=int)
+    start = -patch_half_shape
+    end = patch_half_shape
+    sampling_grid = np.mgrid[start[0]:end[0], start[1]:end[1]]
+    sampling_grid = sampling_grid.swapaxes(0, 2).swapaxes(0, 1)
 
-    patch_grid = (sampling_grid[None, :, :, :] + centres[:, None, None, :]
-                  ).astype('int32')
+    list_patches = []
 
-    X = patch_grid[:, :, :, 0].clip(0, max_x)
-    Y = patch_grid[:, :, :, 1].clip(0, max_y)
+    for i in range(imgs.shape[0]):
 
-    return pixels[:, X, Y].transpose(1, 2, 3, 0)
+        img, ldm = imgs[i], landmarks[i]
+        img = img.transpose(2, 0, 1)
+
+        max_x = img.shape[-2] - 1
+        max_y = img.shape[-1] - 1
+
+        patch_grid = (sampling_grid[None, :, :, :] + ldm[:, None, None, :]
+                      ).astype('int32')
+
+        X = patch_grid[:, :, :, 0].clip(0, max_x)
+        Y = patch_grid[:, :, :, 1].clip(0, max_y)
+
+        patches = img[:, Y, X].transpose(1, 3, 2, 0)
+        list_patches.append(patches)
+
+        # # Plot for debugging
+        # plt.figure()
+        # plt.imshow(img[0, :, :], cmap="gray")
+        # plt.scatter(ldm[:, 0], ldm[:, 1])
+
+        # gs = gridspec.GridSpec(5, 1)
+        # fig = plt.figure(figsize=(15, 15))
+        # for i in range(5):
+        #     ax = plt.subplot(gs[i])
+        #     ax.imshow(patches[i, :, :, 0], cmap="gray")
+        # gs.tight_layout(fig)
+        # plt.show()
+
+    return np.array(list_patches).astype(np.float32)
 
 
 def conv_model(inputs, is_training=True, scope=''):
@@ -109,14 +128,15 @@ def conv_model(inputs, is_training=True, scope=''):
 
 def model(images, inits, num_iterations=4, num_patches=5, patch_shape=(24, 24), num_channels=1, is_training=True):
     batch_size = images.get_shape().as_list()[0]
-    hidden_state = tf.zeros((batch_size, 512))
+    hidden_state = tf.zeros((batch_size, 128))
     dx = tf.zeros((batch_size, num_patches, 2))
+    images /= 255.
     endpoints = {}
     dxs = []
 
     for step in range(num_iterations):
         with tf.device('/cpu:0'):
-            patches = tf.py_func(extract_patches, [images, tf.constant(patch_shape), inits + dx], [tf.float32])[0]
+            patches = tf.py_func(extract_patches, [images, inits + dx, tf.constant(patch_shape)], [tf.float32])[0]
         patches = tf.reshape(patches, (batch_size * num_patches, patch_shape[0], patch_shape[1], num_channels))
 
         endpoints['patches'] = patches
@@ -127,7 +147,7 @@ def model(images, inits, num_iterations=4, num_patches=5, patch_shape=(24, 24), 
         ims = tf.reshape(ims, (batch_size, -1))
 
         with tf.variable_scope('rnn', reuse=step > 0):
-            hidden_state = slim.ops.fc(tf.concat(1, [ims, hidden_state]), 512, activation=tf.tanh)
+            hidden_state = slim.ops.fc(tf.concat(1, [ims, hidden_state]), 128, activation=tf.tanh)
             hidden_drop = slim.ops.dropout(hidden_state, 0, scope='drop', is_training=is_training)
             prediction = slim.ops.fc(hidden_drop, num_patches * 2, scope='pred', activation=None)
             endpoints['prediction'] = prediction
@@ -136,3 +156,12 @@ def model(images, inits, num_iterations=4, num_patches=5, patch_shape=(24, 24), 
         dxs.append(dx)
 
     return inits + dx, dxs, endpoints
+
+
+if __name__ == '__main__':
+
+    with h5py.File("../data/validation_celeba_FaceTracker.h5") as hf:
+        _images_val = hf["validation_data"][:]
+        _landmarks_val = hf["validation_landmarks"][:]
+
+        extract_patches(_images_val[:10], _landmarks_val[:10], (64, 64))
