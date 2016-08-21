@@ -95,3 +95,9 @@ The facetracking app then follows the following method:
 - Crop the video around the face
 - Starting from an initial estimation of the shape, predict the location of landmarks
 - For subsequent frames, use the previous location as a starting point for the algorithm.
+
+# Concluding remarks
+
+- The tracker is not very robust to rotation as it was trained on aligned images. This could be solved by data augmentation.
+- A failure checker is yet to be implemented (i.e. provide a way to restart if the tracker can't converge) so the program may crash under challenging conditions.
+- Only 5 landmark points are provided in the CelebA dataset. This does not help robustness either (typically, more than 40 landmark points are used, which provides a much finer-grained sampling of the image, and possibly better predictions).
