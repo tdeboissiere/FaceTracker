@@ -126,9 +126,9 @@ def conv_model(inputs, is_training=True, scope=''):
     return net
 
 
-def model(images, inits, num_iterations=4, num_patches=5, patch_shape=(24, 24), num_channels=1, is_training=True):
+def model(images, inits, num_iterations=3, num_patches=5, patch_shape=(24, 24), num_channels=1, is_training=True):
     batch_size = images.get_shape().as_list()[0]
-    hidden_state = tf.zeros((batch_size, 128))
+    hidden_state = tf.zeros((batch_size, 512))
     dx = tf.zeros((batch_size, num_patches, 2))
     images /= 255.
     endpoints = {}
@@ -147,7 +147,7 @@ def model(images, inits, num_iterations=4, num_patches=5, patch_shape=(24, 24), 
         ims = tf.reshape(ims, (batch_size, -1))
 
         with tf.variable_scope('rnn', reuse=step > 0):
-            hidden_state = slim.ops.fc(tf.concat(1, [ims, hidden_state]), 128, activation=tf.tanh)
+            hidden_state = slim.ops.fc(tf.concat(1, [ims, hidden_state]), 512, activation=tf.tanh)
             hidden_drop = slim.ops.dropout(hidden_state, 0, scope='drop', is_training=is_training)
             prediction = slim.ops.fc(hidden_drop, num_patches * 2, scope='pred', activation=None)
             endpoints['prediction'] = prediction

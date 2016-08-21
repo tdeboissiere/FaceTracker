@@ -24,7 +24,7 @@ tf.app.flags.DEFINE_integer('num_preprocess_threads', 4,
 tf.app.flags.DEFINE_string('train_dir', '../models/train/',
                            """Directory where to write event logs """
                            """and checkpoint.""")
-tf.app.flags.DEFINE_string('pretrained_model_checkpoint_path', '',
+tf.app.flags.DEFINE_string('pretrained_model_checkpoint_path', '../models/train/model.ckpt-11',
                            """If specified, restore this pretrained model """
                            """before beginning any training.""")
 tf.app.flags.DEFINE_string('train_device', '/gpu:0', """Device to train with.""")
@@ -44,7 +44,7 @@ def sample_perturbation(gt_pts, mean_shape):
     g_r = 0
 
     # set perturbation limits
-    perturb_scale, perturb_tx, perturb_ty = 0.2, 40, 40
+    perturb_scale, perturb_tx, perturb_ty = 0.15, 30, 30
     perturb_scale_small, perturb_tx_small, perturb_ty_small = 0.1, 10, 10
 
     # sample perturbation
@@ -88,7 +88,7 @@ def get_perturbation_statistics():
 
     # Now sample perturbations
     delta = []
-    for i in tqdm(range(500000)):
+    for i in tqdm(range(1000000)):
         idx = np.random.randint(0, len(data))
         ldm = landmarks[idx]
         perturbed_ldm = sample_perturbation(ldm, mean_landmarks)
@@ -314,33 +314,24 @@ def train(scope=''):
         # Start the queue runners.
         tf.train.start_queue_runners(sess=sess)
 
-        summary_writer = tf.train.SummaryWriter(FLAGS.train_dir, sess.graph)
+        # summary_writer = tf.train.SummaryWriter(FLAGS.train_dir, sess.graph)
 
-        print('Starting training...')
+        print('Starting evaluation...')
         nb_epoch = 200
         n_step_per_epoch = 500
         for ep in range(nb_epoch):
-            start_time = time.time()
-            epoch_train_loss = []
             for step in range(n_step_per_epoch):
-                _, loss_train, loss_train_last_step = sess.run([train_op, total_loss_train, list_train_loss[-1]])
-                epoch_train_loss.append(loss_train_last_step)
+                imgs, gts, ini, preds = sess.run([images_val, lms_val, inits_val, predictions_val])
 
-                assert not np.isnan(loss_train), 'Model diverged (train) with loss = NaN'
-
-                if step % 100 == 0:
-                    format_str = ('Epoch %s: step %d / %s, train loss last iter = %.2f')
-                    print(format_str % (ep, step + 1, n_step_per_epoch, np.mean(epoch_train_loss)))
-
-                if step % 100 == 0:
-                    summary_str = sess.run(summary_op)
-                    summary_writer.add_summary(summary_str, n_step_per_epoch * ep + step)
-
-            # Save the model checkpoint periodically.
-            checkpoint_path = os.path.join(FLAGS.train_dir, 'model.ckpt')
-            saver.save(sess, checkpoint_path, global_step=ep)
-            duration = time.time() - start_time
-            print "Time elapsed: %s (s)" % (duration)
+                for k in range(128):
+                    plt.imshow(imgs[k, :, :, 0], cmap="gray")
+                    plt.scatter(gts[k, :, 0], gts[k, :, 1], color="green")
+                    plt.scatter(ini[k, :, 0], ini[k, :, 1], color="red")
+                    plt.scatter(preds[k, :, 0], preds[k, :, 1], color="blue")
+                    plt.show()
+                    plt.clf()
+                    plt.close()
+                raw_input()
 
 if __name__ == '__main__':
     train()
