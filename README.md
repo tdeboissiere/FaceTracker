@@ -19,7 +19,7 @@ To install OpenCV, the recommended option (through anaconda) is:
 
 To install tensorflow:
 
-    ![Follow the instructions here](https://www.tensorflow.org/versions/r0.10/get_started/index.html)
+![Follow the instructions here](https://www.tensorflow.org/versions/r0.10/get_started/index.html)
 
 
 ## Training the face tracker
