@@ -33,7 +33,7 @@ tf.app.flags.DEFINE_integer('num_preprocess_threads', 4,
 tf.app.flags.DEFINE_string('train_dir', '../../models/train/',
                            """Directory where to write event logs """
                            """and checkpoint.""")
-tf.app.flags.DEFINE_string('pretrained_model_checkpoint_path', '../models/train/model.ckpt-17',
+tf.app.flags.DEFINE_string('pretrained_model_checkpoint_path', '../models/train/pretrained_model.ckpt',
                            """If specified, restore this pretrained model """
                            """before beginning any training.""")
 tf.app.flags.DEFINE_integer('max_steps', 2000,

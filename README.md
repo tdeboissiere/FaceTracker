@@ -11,7 +11,7 @@ This repository shows how to build a face tracker, following:
 
 To install most requirements:
 
-pip install -r requirements.txt
+    pip install -r requirements.txt
 
 To install OpenCV, the recommended option (through anaconda) is:
 
@@ -82,3 +82,16 @@ You can modify the choice of model by specifying your model checkpoint at the be
                                """before beginning any training.""")
 
 By default, it is set to the pre-trained model that you can find in `models`
+
+# How does it work ?
+
+MDM are a clever implementation of a descent method that seeks to align a reference shape (i.e. a collection of landmarks on the face) to a given image. 
+
+The alignment is predicted by a combination of a CNN (for feature extraction) and an RNN (to map the extracted feature to a prediction of the correct shape). Typically, this is done in iterative steps (predict a new location for the points, extract features from this new location and repeat). The use of an RNN allows us to optimize all steps simultaneously.
+
+The facetracking app then follows the following method:
+
+- Locate the face with OpenCV's face detector
+- Crop the video around the face
+- Starting from an initial estimation of the shape, predict the location of landmarks
+- For subsequent frames, use the previous location as a starting point for the algorithm.
